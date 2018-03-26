@@ -1,4 +1,7 @@
-var autocrypt = require('./autocrypt')
+var autocrypt = require('./autocrypt')()
+var messageParse = require('./messageParse')
+
+var messagepane = document.getElementById('messagepane');
 
 var messageListener = {
   onStartHeaders: function() {
@@ -14,16 +17,24 @@ var messageListener = {
         autocryptHeader = self.currentHeaderData[h].headerValue
       }
     }
-    if (autocryptHeader) importAutocryptHeader(autocryptHeader)
+    if (!autocryptHeader) return messageParse()
+    var from = self.currentHeaderData.from.headerValue
+    var date = new Date(self.currentHeaderData.date.headerValue)
+    autocrypt.processAutocryptHeader(autocryptHeader, from, date, function (err) {
+      if (err) console.error(err)
+      else messageParse()
+    })
   }
 }
 
-function importAutocryptHeader (autocryptHeader) {
-  ac
+
+function messageFrameUnload () {
+  console.log('cleaning up!')
 }
 
 function load () {
   self.gMessageListeners.push(messageListener);
+  messagePane.addEventListener("unload", messageFrameUnload, true);
 }
 
 function unload () {
@@ -33,6 +44,7 @@ function unload () {
       break;
     }
   }
+  messagePane.removeEventListener("unload", messageFrameUnload, true);
 }
 
 window.addEventListener("load", load);

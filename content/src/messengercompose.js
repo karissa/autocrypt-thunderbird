@@ -1,4 +1,4 @@
-var ac = require('./autocrypt')
+var autocrypt = require('./autocrypt')()
 var base64 = require('base64-js')
 var openpgp = require('openpgp')
 
@@ -26,14 +26,14 @@ function onSendMessage (event) {
 function done (err, user) {
   if (err) throw err
   var email = getEmail()
-  ac.generateAutocryptHeader(email, function (err, _header) {
+  autocrypt.generateAutocryptHeader(email, function (err, _header) {
     header = _header
   })
 }
 
-function startup() {
+function startup () {
   var email = getEmail()
-  ac.getUser(email, function (err, user) {
+  autocrypt.getUser(email, function (err, user) {
     if (err) {
       console.error(err)
       return generateKey(email, done)
@@ -59,9 +59,8 @@ function generateKey (email, cb) {
 }
 
 function getEmail () {
-  var ac = getAccountForIdentity()
-  console.log('identity', ac)
-  return ac.defaultIdentity.email
+  var account = getAccountForIdentity()
+  return account.defaultIdentity.email
 }
 
 function getAccountForIdentity () {
