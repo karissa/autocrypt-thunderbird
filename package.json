@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "browserify -r timers -r buffer -r crypto-browserify:crypto content/index.js > content/autocrypt.js",
+    "build": "browserify -r buffer -r crypto-browserify:crypto content/src/messengercompose.js > content/messengercompose.js",
     "package": "npm run build && ./package.sh"
   },
   "repository": {
@@ -19,7 +19,9 @@
   },
   "homepage": "https://github.com/karissa/autocrypt-thunderbird#readme",
   "dependencies": {
-    "autocrypt": "^0.6.0"
+    "autocrypt": "^0.7.0",
+    "base64-js": "^1.2.3",
+    "memdb": "^1.3.1"
   },
   "devDependencies": {
     "browserify": "^16.1.1"
