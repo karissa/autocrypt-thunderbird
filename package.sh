@@ -1,0 +1,1 @@
+zip -r autocrypt.xpi *

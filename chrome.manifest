@@ -1,0 +1,4 @@
+content     autocrypt    content/
+
+overlay chrome://messenger/content/messengercompose/messengercompose.xul chrome://autocrypt/content/messengercompose.xul
+overlay chrome://messenger/content/messenger.xul chrome://autocrypt/content/messenger.xul
