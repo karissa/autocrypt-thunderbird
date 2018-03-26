@@ -1,0 +1,23 @@
+{
+  "name": "autocrypt-plugin",
+  "version": "1.0.0",
+  "description": "WIP Extension for Autocrypt in Thunderbird",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "package": "npm install && ./package.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karissa/autocrypt-thunderbird.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/karissa/autocrypt-thunderbird/issues"
+  },
+  "homepage": "https://github.com/karissa/autocrypt-thunderbird#readme",
+  "dependencies": {
+    "autocrypt": "^0.4.1"
+  }
+}
