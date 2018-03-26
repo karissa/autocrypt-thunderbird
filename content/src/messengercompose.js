@@ -11,15 +11,54 @@ var ac = autocrypt({
   storage: memdb({valueEncoding: 'json'})
 })
 
+var header
+
 window.addEventListener('compose-send-message', onSendMessage, true);
+window.addEventListener('load', function (e) {
+  startup();
+}, false);
 
 function onSendMessage (event) {
   var email = getEmail()
   let msgcomposeWindow = document.getElementById("msgcomposeWindow");
   let sendMsgType = Number(msgcomposeWindow.getAttribute("msgtype"));
-  ac.generateAutocryptHeader(email, function (err, header) {
-    console.log('adding header', header)
+  if (header) {
     self.gMsgCompose.compFields.setHeader('Autocrypt', header)
+  }
+}
+
+function done (err, user) {
+  if (err) throw err
+  var email = getEmail()
+  ac.generateAutocryptHeader(email, function (err, _header) {
+    header = _header
+  })
+}
+
+function startup() {
+  var email = getEmail()
+  ac.getUser(email, function (err, user) {
+    if (err) {
+      console.error(err)
+      return generateKey(email, done)
+    }
+    done(null, user)
+  })
+}
+
+function generateKey (email, cb) {
+  openpgp.generateKey({
+    userIds: [{ name: 'Jon Smith', email: email }],
+    numBits: 3072,
+    passphrase: 'super long and hard to guess'
+  }).then((key) =>  {
+    var unarmored = openpgp.armor.decode(key.publicKeyArmored)
+    var data = unarmored.data
+    var keyData = base64.fromByteArray(data)
+    ac.addUser(email, keyData.replace(/(.{72})/g, "$1\r\n"), function (err) {
+      if (err) return cb(err)
+      cb()
+    })
   })
 }
 
@@ -45,39 +84,4 @@ function getAccountForIdentity () {
   }
 
   return null;
-}
-
-window.addEventListener("load", function(e) {
-  startup();
-}, false);
-
-function done (err, user) {
-  if (err) throw err
-  console.log('done', user)
-}
-
-function startup() {
-  var email = getEmail()
-  ac.getUser(email, function (err, user) {
-    if (err) {
-      console.error(err)
-      return generateKey(email, done)
-    }
-    done(null, user)
-  })
-}
-
-function generateKey (email, cb) {
-  openpgp.generateKey({
-    userIds: [{ name: 'Jon Smith', email: email }],
-    numBits: 3072,
-    passphrase: 'super long and hard to guess'
-  }).then((key) =>  {
-    var unarmored = openpgp.armor.decode(key.publicKeyArmored)
-    var data = unarmored.data
-    ac.addUser(email, base64.fromByteArray(data), function (err) {
-      if (err) return cb(err)
-      cb()
-    })
-  })
 }
