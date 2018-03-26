@@ -5,7 +5,6 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "browserify -r timers -r buffer -r crypto-browserify:crypto content/index.js > content/autocrypt.js",
     "package": "npm run build && ./package.sh"
   },
   "repository": {
