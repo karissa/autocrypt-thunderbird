@@ -2,7 +2,6 @@ const Cc = Components.classes;
 const Ci = Components.interfaces;
 const Cu = Components.utils;
 
-Cu.import("chrome://autocrypt/content/autocrypt.js"); /*global Autocrypt: false */
 /*global gMsgCompose: false, getCurrentIdentity: false */
 
 // Listen to message sending event

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <overlay id="sample" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
-  <script type="application/javascript" src="chrome://autocrypt/content/overlay.js"/>
+  <script type="application/javascript" src="chrome://autocrypt/content/messenger.js"/>
  <statusbar id="status-bar">
   <statusbarpanel id="autocrypt-panel" label="Autocrypt Status"/>
  </statusbar>
