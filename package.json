@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "package": "npm install && ./package.sh"
+    "build": "browserify content/index.js > content/autocrypt.js",
+    "package": "npm run build && ./package.sh"
   },
   "repository": {
     "type": "git",
@@ -18,6 +19,9 @@
   },
   "homepage": "https://github.com/karissa/autocrypt-thunderbird#readme",
   "dependencies": {
-    "autocrypt": "^0.4.1"
+    "autocrypt": "^0.5.0"
+  },
+  "devDependencies": {
+    "browserify": "^16.1.1"
   }
 }

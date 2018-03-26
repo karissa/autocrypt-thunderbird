@@ -1,18 +1,18 @@
 const Cc = Components.classes;
 const Ci = Components.interfaces;
+const Cu = Components.utils;
 
+Cu.import("chrome://autocrypt/content/autocrypt.js"); /*global Autocrypt: false */
 /*global gMsgCompose: false, getCurrentIdentity: false */
 
 // Listen to message sending event
 window.addEventListener('compose-send-message', onSendMessage, true);
 
 function onSendMessage () {
-  console.log('hi')
   let msgcomposeWindow = document.getElementById("msgcomposeWindow");
   let sendMsgType = Number(msgcomposeWindow.getAttribute("msgtype"));
   gMsgCompose.compFields.setHeader('Random-Header', 'hello-world')
   var identity = getAccountForIdentity(getCurrentIdentity())
-  console.log(identity)
   //gMsgCompose.compFields.setHeader('My-Identity', identity)
 }
 
