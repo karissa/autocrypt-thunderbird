@@ -1,15 +1,11 @@
-var autocrypt = require('autocrypt')
+var ac = require('./autocrypt')
 var base64 = require('base64-js')
-var memdb = require('memdb')
 var openpgp = require('openpgp')
 
 var Cc = self.Components.classes
 var Ci = self.Components.interfaces
 var Cu = self.Components.utils
 
-var ac = autocrypt({
-  storage: memdb({valueEncoding: 'json'})
-})
 
 var header
 
