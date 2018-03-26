@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "npm run build-removeasm && npm run build-js",
+    "watch": "watchify -r buffer -r crypto-browserify:crypto content/src/messengercompose.js -o content/messengercompose.js",
     "build-js": "browserify -r buffer -r crypto-browserify:crypto content/src/messengercompose.js > content/messengercompose.js",
     "build-removeasm": "grep -v 'use asm' <node_modules/openpgp/dist/openpgp.js >node_modules/openpgp/dist/openpgp-noasm.js ; mv node_modules/openpgp/dist/openpgp-noasm.js node_modules/openpgp/dist/openpgp.js",
     "package": "npm run build && ./package.sh"
@@ -27,6 +28,7 @@
     "openpgp": "^3.0.3"
   },
   "devDependencies": {
-    "browserify": "^16.1.1"
+    "browserify": "^16.1.1",
+    "watchify": "^3.11.0"
   }
 }
