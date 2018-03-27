@@ -4,6 +4,6 @@ var autocrypt = require('autocrypt')
 
 module.exports = function () {
   return autocrypt({
-    storage: level('autocrypt-test', {valueEncoding: 'json'})
+    storage: level('autocrypt-test2', {valueEncoding: 'json'})
   })
 }

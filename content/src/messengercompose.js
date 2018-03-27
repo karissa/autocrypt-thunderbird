@@ -42,6 +42,7 @@ function startup () {
     if (err) {
       return generateKey(email, done)
     }
+    console.log('got autocrypt user', user)
     done(null, user)
   })
 }
@@ -59,8 +60,9 @@ function generateKey (email, cb) {
     userIds: [{ name: ' ', email: email }],
     numBits: 3072
   }).then((key) =>  {
-    var publicKey = unarmor(key.publicKeyArmored).replace(/(.{72})/g, "$1\r\n")
+    var publicKey = unarmor(key.publicKeyArmored)
     var privateKey = unarmor(key.privateKeyArmored)
-    ac.createUser(email, {publicKey, privateKey}, cb)
+    console.log('creating autocrypt user', email, publicKey, privateKey)
+    autocrypt.createUser(email, {publicKey, privateKey}, cb)
   })
 }

@@ -77,7 +77,7 @@ function parseMessage (fromEmail, myEmail, uriSpec, cb) {
       if (err) return onerror(err)
       autocrypt.getUser(fromEmail, function (err, from) {
         if (err) return onerror(err)
-        return decrypt(from.public_key, me.private_key, cipherText)
+        return decrypt(from.keydata, me.privateKey, cipherText)
       })
     })
   })
