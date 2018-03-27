@@ -46,7 +46,8 @@ function decrypt (fromPublicKey, privateKey, cipherText) {
     privateKeys: openpgp.key.read(base64.toByteArray(privateKey)).keys
   }
   openpgp.decrypt(options).then(function (plaintext) {
-    console.log(plaintext)
+    let bodyElement = messagePane.document.getElementsByTagName("body")[0];
+    bodyElement.innerHTML = plaintext.data
   })
 }
 
