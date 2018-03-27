@@ -1,8 +1,9 @@
-var memdb = require('memdb')
+var path = require('path')
+var level = require('level-browserify')
 var autocrypt = require('autocrypt')
 
-var ac = autocrypt({
-  storage: memdb({valueEncoding: 'json'})
-})
-
-module.exports = ac
+module.exports = function () {
+  return autocrypt({
+    storage: level('autocrypt-test', {valueEncoding: 'json'})
+  })
+}

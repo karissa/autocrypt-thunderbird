@@ -1,4 +1,13 @@
-var autocrypt = require('./autocrypt')
+/* global getCurrentIdentity: false */
+
+var getMimeTree = require('./mime')
+var streams = require('./streams')
+var base64 = require('base64-js')
+var autocrypt = require('./autocrypt')()
+var getAuthor = require('parse-author')
+var openpgp = require('openpgp')
+
+let messagePane = getFrame(window, "messagepane");
 
 var messageListener = {
   onStartHeaders: function() {
@@ -9,21 +18,133 @@ var messageListener = {
   onEndHeaders: function() {},
   onEndAttachments: function() {},
   onBeforeShowHeaderPane: function () {
+    var autocryptHeader
     for (let h in self.currentHeaderData) {
       if (/^autocrypt\d*$/i.test(h)) {
         autocryptHeader = self.currentHeaderData[h].headerValue
       }
     }
-    if (autocryptHeader) importAutocryptHeader(autocryptHeader)
+    var myEmail = gMessageDisplay.folderDisplay.view.displayedFolder.parent.abbreviatedName
+    var uriSpec = gFolderDisplay.selectedMessageUris[0]
+    if (!autocryptHeader) return parseMessage(myEmail, uriSpec)
+
+    var author = getAuthor(self.currentHeaderData.from.headerValue)
+    var fromEmail = author.email || author.name
+    var date = new Date(self.currentHeaderData.date.headerValue)
+    autocrypt.processAutocryptHeader(autocryptHeader, fromEmail, date, function (err) {
+      if (err) return onerror(err)
+      return parseMessage(fromEmail, myEmail, uriSpec)
+    })
   }
 }
 
-function importAutocryptHeader (autocryptHeader) {
-  ac
+function decrypt (fromPublicKey, privateKey, cipherText) {
+  if (!fromPublicKey || !privateKey) return console.error('one or more udnefined: ', fromPublicKey, privateKey)
+  var options = {
+    message: openpgp.message.readArmored(cipherText),
+    publicKey: openpgp.key.read(base64.toByteArray(fromPublicKey)).keys,
+    privateKeys: openpgp.key.read(base64.toByteArray(privateKey)).keys
+  }
+  openpgp.decrypt(options).then(function (plaintext) {
+    console.log(plaintext)
+  })
+}
+
+function contains (headerVal, str) {
+  return headerVal.indexOf(str) > -1
+}
+
+function getEncrypted (contentType, mimeTree) {
+  if (contains(contentType, 'multipart/encrypted')) {
+    var parts = mimeTree.subParts
+    if (parts.length === 2 &&
+    contains(parts[0].fullContentType, 'application/pgp-encrypted')  &&
+    contains(parts[1].fullContentType, 'application/octet-stream')) {
+      return parts[1].body
+    }
+  }
+  return null
+}
+
+function parseMessage (fromEmail, myEmail, uriSpec, cb) {
+  console.log('getting mime tree for ', uriSpec)
+  getMimeTreeFromUriSpec(uriSpec, function (mimeTree) {
+    console.log('got mimeTree', mimeTree)
+    var contentType = self.currentHeaderData['content-type'].headerValue
+    var cipherText = getEncrypted(contentType, mimeTree)
+    if (!cipherText) return console.log('not encrypted')
+    autocrypt.getUser(myEmail, function (err, me) {
+      if (err) return onerror(err)
+      autocrypt.getUser(fromEmail, function (err, from) {
+        if (err) return onerror(err)
+        return decrypt(from.public_key, me.private_key, cipherText)
+      })
+    })
+  })
+}
+
+function getFrame (win, frameName) {
+  for (var j = 0; j < win.frames.length; j++) {
+    if (win.frames[j].name == frameName) {
+      return win.frames[j];
+    }
+  }
+  return null
+}
+
+function onerror (err) {
+  console.error(err)
+}
+
+function getMimeTreeFromUriSpec (uriSpec, cb) {
+  var done = function (data) {
+    cb(getMimeTree(data))
+  }
+  var url = getUrlFromUriSpec(uriSpec)
+  console.log('get mime tree for', url.spec)
+
+  var chan = streams.createChannel(url.spec);
+  var bufferListener = streams.newStringStreamListener(done);
+  chan.asyncOpen(bufferListener, null);
+}
+
+function getUrlFromUriSpec (uriSpec) {
+  try {
+    if (!uriSpec)
+    return null;
+
+    let messenger = Cc["@mozilla.org/messenger;1"].getService(Ci.nsIMessenger);
+    let msgService = messenger.messageServiceFromURI(uriSpec);
+
+    let urlObj = {};
+    msgService.GetUrlForUri(uriSpec, urlObj, null);
+
+    let url = urlObj.value;
+
+    if (url.scheme == "file") {
+      return url;
+    }
+    else {
+      return url.QueryInterface(Ci.nsIMsgMailNewsUrl);
+    }
+
+  }
+  catch (ex) {
+    return null;
+  }
+}
+
+function getPayload (selectedMessage) {
+
+}
+
+function messageFrameUnload () {
+  console.log('cleaning up!')
 }
 
 function load () {
   self.gMessageListeners.push(messageListener);
+  messagePane.addEventListener("unload", messageFrameUnload, true);
 }
 
 function unload () {
@@ -33,6 +154,7 @@ function unload () {
       break;
     }
   }
+  messagePane.removeEventListener("unload", messageFrameUnload, true);
 }
 
 window.addEventListener("load", load);
