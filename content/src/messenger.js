@@ -40,14 +40,18 @@ var messageListener = {
 
 function decrypt (fromPublicKey, privateKey, cipherText) {
   if (!fromPublicKey || !privateKey) return console.error('one or more udnefined: ', fromPublicKey, privateKey)
+  let bodyElement = messagePane.document.getElementsByTagName("body")[0];
+  bodyElement.innerHTML = ''
   var options = {
     message: openpgp.message.readArmored(cipherText),
     publicKey: openpgp.key.read(base64.toByteArray(fromPublicKey)).keys,
     privateKeys: openpgp.key.read(base64.toByteArray(privateKey)).keys
   }
   openpgp.decrypt(options).then(function (plaintext) {
-    let bodyElement = messagePane.document.getElementsByTagName("body")[0];
-    bodyElement.innerHTML = plaintext.data
+    var pre = document.createElement('pre')
+    pre.setAttribute('wrap', '')
+    pre.textContent = plaintext.data
+    bodyElement.appendChild(pre)
   })
 }
 
