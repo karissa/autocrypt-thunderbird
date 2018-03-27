@@ -24,9 +24,9 @@ function enumerateMimeParts (mimePart, resultObj) {
   }
 }
 
-module.exports = decryptCb
+module.exports = parseMime
 
-function decryptCb (event, mimeMsg) {
+function parseMime (event, mimeMsg) {
     var buggyExchangeEmailContent = null; // reinit HACK for MS-EXCHANGE-Server Problem
     var mimeParts;
     let enigmailSvc;
@@ -35,7 +35,7 @@ function decryptCb (event, mimeMsg) {
 
       if (!mimeMsg) {
         try {
-          contentType = currentHeaderData['content-type'].headerValue;
+          contentType = self.currentHeaderData['content-type'].headerValue;
         }
         catch (ex) {
           contentType = "text/plain";

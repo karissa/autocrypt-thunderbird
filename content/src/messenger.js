@@ -1,7 +1,8 @@
+var parseAuthor = require('parse-author')
 var autocrypt = require('./autocrypt')()
-var messageParse = require('./messageParse')
+var parseMime = require('./parseMime')
 
-var messagepane = document.getElementById('messagepane');
+var messagePane = document.getElementById('messagepane');
 
 var messageListener = {
   onStartHeaders: function() {
@@ -17,12 +18,12 @@ var messageListener = {
         autocryptHeader = self.currentHeaderData[h].headerValue
       }
     }
-    if (!autocryptHeader) return messageParse()
-    var from = self.currentHeaderData.from.headerValue
+    if (!autocryptHeader) return parseMime()
+    var from = parseAuthor(self.currentHeaderData.from.headerValue).email
     var date = new Date(self.currentHeaderData.date.headerValue)
     autocrypt.processAutocryptHeader(autocryptHeader, from, date, function (err) {
       if (err) console.error(err)
-      else messageParse()
+      else parseMime()
     })
   }
 }
