@@ -12,6 +12,8 @@ var Ci = self.Components.interfaces
 var Cu = self.Components.utils
 
 Cu.import("resource:///modules/mailServices.js");
+var gTxtConverter = Cc["@mozilla.org/txttohtmlconv;1"].createInstance(Ci.mozITXTToHTMLConv)
+var convFlags = Ci.mozITXTToHTMLConv.kEntities
 
 var ready = false
 
@@ -46,26 +48,21 @@ function onSendMessage (event) {
   var identity = getCurrentIdentity()
   let msgSend = Cc['@mozilla.org/messengercompose/send;1'].createInstance(Ci.nsIMsgSend);
   let progress = Cc["@mozilla.org/messenger/progress;1"].createInstance(Ci.nsIMsgProgress);
-  let fields = Cc["@mozilla.org/messengercompose/composefields;1"].createInstance(Ci.nsIMsgCompFields);
-  let params = Cc["@mozilla.org/messengercompose/composeparams;1"].createInstance(Ci.nsIMsgComposeParams);
 
   var currentMessage = self.gMsgCompose.compFields
-  fields.to = currentMessage.to
-  fields.cc = currentMessage.cc
-  fields.subject = currentMessage.subject
-  fields.from = currentMessage.from
-  fields.bcc = currentMessage.bcc
 
   var fromEmail = getAuthor(getEmail(identity))
-  var toEmail = getAuthor(fields.to)
+  var toEmail = getAuthor(currentMessage.to)
   // lets try to encrypt this
-  encrypt(fromEmail, toEmail, fields.body, function (err, cipherText) {
+  encrypt(fromEmail, toEmail, currentMessage.body, function (err, cipherText) {
     if (err) onerror(err)
     if (cipherText) {
       // halalujah, it can be encrypted
       var cryptoBoundary = crypto.randomBytes(16).toString('base64')
-      var contentType =`multipart/encrypted;protocol="application/pgp-encrypted;boundary="${cryptoBoundary}`
-      fields.setHeader('Content-Type', contentType)
+      var contentType =`multipart/encrypted;protocol="application/pgp-encrypted";boundary="${cryptoBoundary}"`
+      currentMessage.deleteHeader('Content-Transfer-Encoding')
+      currentMessage.deleteHeader('Content-Type')
+      currentMessage.setHeader('Content-Type', contentType)
 
       var mimeMessage = "This is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n" +
       "--" + cryptoBoundary + "\r\n" +
@@ -80,18 +77,18 @@ function onSendMessage (event) {
       "Content-Disposition: inline; filename=\"encrypted.asc\"\r\n"
       + "\r\n";
       mimeMessage += cipherText.data
-      fields.body = mimeMessage
+      var HTMLmessage = gTxtConverter.scanTXT(mimeMessage, convFlags)
+      HTMLmessage = HTMLmessage.replace(/\r\n/g, '<br>')
+      currentMessage.body = HTMLmessage
+      gMsgCompose.editor.document.body.innerHTML = HTMLmessage
     }
     // ok send the message
     autocrypt.generateAutocryptHeader(fromEmail, function (err, autocryptHeader) {
       if (err) onerror(err)
-      if (autocryptHeader) fields.setHeader('Autocrypt', autocryptHeader)
+      if (autocryptHeader) currentMessage.setHeader('Autocrypt', autocryptHeader)
 
       // send the email.
       let am = MailServices.accounts
-      params.composeFields = fields
-      params.format = Ci.nsIMsgCompFormat.PlainText
-      self.gMsgCompose.initialize(params)
       self.gMsgCompose.SendMsg(msgSend.nsMsgDeliverNow,
         am.defaultAccount.defaultIdentity,
         am.defaultAccount,
