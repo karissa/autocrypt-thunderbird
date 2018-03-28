@@ -1,8 +1,10 @@
+var MimeBuilder = require('emailjs-mime-builder')
 var crypto = require('crypto')
 var base64 = require('base64-js')
 var openpgp = require('openpgp')
 
 var getEmail = require('./email').getEmail
+var getAuthor = require('./author')
 var autocrypt = require('./autocrypt')()
 
 var Cc = self.Components.classes
@@ -42,29 +44,62 @@ function encrypt (fromEmail, toEmail, plainText, cb) {
 
 function onSendMessage (event) {
   var identity = getCurrentIdentity()
-  var email = getEmail(identity)
   let msgSend = Cc['@mozilla.org/messengercompose/send;1'].createInstance(Ci.nsIMsgSend);
   let progress = Cc["@mozilla.org/messenger/progress;1"].createInstance(Ci.nsIMsgProgress);
-  let currentMessage = self.gMsgCompose.compFields
+  let fields = Cc["@mozilla.org/messengercompose/composefields;1"].createInstance(Ci.nsIMsgCompFields);
+  let params = Cc["@mozilla.org/messengercompose/composeparams;1"].createInstance(Ci.nsIMsgComposeParams);
+
+  var currentMessage = self.gMsgCompose.compFields
+  fields.to = currentMessage.to
+  fields.cc = currentMessage.cc
+  fields.subject = currentMessage.subject
+  fields.from = currentMessage.from
+  fields.bcc = currentMessage.bcc
+
+  var fromEmail = getAuthor(getEmail(identity))
+  var toEmail = getAuthor(fields.to)
   // lets try to encrypt this
-  encrypt(email, currentMessage.to, currentMessage.body, function (err, cipherText) {
+  encrypt(fromEmail, toEmail, fields.body, function (err, cipherText) {
     if (err) onerror(err)
     if (cipherText) {
       // halalujah, it can be encrypted
-      currentMessage.body = cipherText.data
+      var cryptoBoundary = crypto.randomBytes(16).toString('base64')
+      var contentType =`multipart/encrypted;protocol="application/pgp-encrypted;boundary="${cryptoBoundary}`
+      fields.setHeader('Content-Type', contentType)
+
+      var mimeMessage = "This is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n" +
+      "--" + cryptoBoundary + "\r\n" +
+      "Content-Type: application/pgp-encrypted\r\n" +
+      "Content-Description: PGP/MIME version identification\r\n" +
+      "\r\n" +
+      "Version: 1\r\n" +
+      "\r\n" +
+      "--" + cryptoBoundary + "\r\n" +
+      "Content-Type: application/octet-stream; name=\"encrypted.asc\"\r\n" +
+      "Content-Description: OpenPGP encrypted message\r\n" +
+      "Content-Disposition: inline; filename=\"encrypted.asc\"\r\n"
+      + "\r\n";
+      mimeMessage += cipherText.data
+      fields.body = mimeMessage
     }
     // ok send the message
-    autocrypt.generateAutocryptHeader(email, function (err, autocryptHeader) {
+    autocrypt.generateAutocryptHeader(fromEmail, function (err, autocryptHeader) {
       if (err) onerror(err)
-      if (autocryptHeader) currentMessage.setHeader('Autocrypt', autocryptHeader)
+      if (autocryptHeader) fields.setHeader('Autocrypt', autocryptHeader)
+
+      // send the email.
       let am = MailServices.accounts
+      params.composeFields = fields
+      params.format = Ci.nsIMsgCompFormat.PlainText
+      self.gMsgCompose.initialize(params)
       self.gMsgCompose.SendMsg(msgSend.nsMsgDeliverNow,
-        am.defaultAccount.defaultIdentity, // identity
-        am.defaultAccount, // account
+        am.defaultAccount.defaultIdentity,
+        am.defaultAccount,
         null, // message window
         progress) // nsIMsgProgress
     })
   })
+  event.stopPropagation()
   event.preventDefault()
   return false
 }

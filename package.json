@@ -25,7 +25,8 @@
     "base64-js": "^1.2.3",
     "level-browserify": "^1.1.2",
     "openpgp": "^3.0.3",
-    "parse-author": "^2.0.0"
+    "parse-author": "^2.0.0",
+    "randombytes": "^2.0.6"
   },
   "devDependencies": {
     "browserify": "^16.1.1",

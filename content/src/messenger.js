@@ -1,11 +1,18 @@
 /* global getCurrentIdentity: false */
 
+var getAuthor = require('./author')
 var getMimeTree = require('./mime')
 var streams = require('./streams')
 var base64 = require('base64-js')
 var autocrypt = require('./autocrypt')()
-var getAuthor = require('parse-author')
 var openpgp = require('openpgp')
+
+var Cu = self.Components.utils
+var Ci = self.Components.interfaces
+var Cc = self.Components.classes
+
+var gTxtConverter = Cc["@mozilla.org/txttohtmlconv;1"].createInstance(Ci.mozITXTToHTMLConv)
+var convFlags = Ci.mozITXTToHTMLConv.kURLs || Ci.mozITXTToHTMLConv.kEntities
 
 let messagePane = getFrame(window, "messagepane");
 
@@ -28,8 +35,7 @@ var messageListener = {
     var uriSpec = gFolderDisplay.selectedMessageUris[0]
     if (!autocryptHeader) return parseMessage(myEmail, uriSpec)
 
-    var author = getAuthor(self.currentHeaderData.from.headerValue)
-    var fromEmail = author.email || author.name
+    var fromEmail = getAuthor(self.currentHeaderData.from.headerValue)
     var date = new Date(self.currentHeaderData.date.headerValue)
     autocrypt.processAutocryptHeader(autocryptHeader, fromEmail, date, function (err) {
       if (err) return onerror(err)
@@ -48,10 +54,10 @@ function decrypt (fromPublicKey, privateKey, cipherText) {
     privateKeys: openpgp.key.read(base64.toByteArray(privateKey)).keys
   }
   openpgp.decrypt(options).then(function (plaintext) {
-    var pre = document.createElement('pre')
-    pre.setAttribute('wrap', '')
-    pre.textContent = plaintext.data
-    bodyElement.appendChild(pre)
+    var html = gTxtConverter.scanTXT(plaintext.data, convFlags)
+    bodyElement.innerHTML = html
+  }).catch(function (err) {
+    bodyElement.innerHTML = 'Decryption failed!'
   })
 }
 
