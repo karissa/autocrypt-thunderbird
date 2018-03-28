@@ -13,6 +13,15 @@ const Cu = Components.utils;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm"); /*global XPCOMUtils: false */
 Cu.import("resource://gre/modules/Services.jsm"); /* global Services: false */
 
+const NS_RDONLY = 0x01;
+const NS_WRONLY = 0x02;
+const NS_CREATE_FILE = 0x08;
+const NS_TRUNCATE = 0x20;
+const DEFAULT_FILE_PERMS = 0x180; // equals 0600
+const NS_LOCALFILEOUTPUTSTREAM_CONTRACTID = "@mozilla.org/network/file-output-stream;1";
+const XPCOM_APPINFO = "@mozilla.org/xre/app-info;1";
+const DIRSERVICE_CONTRACTID = "@mozilla.org/file/directory_service;1";
+const NS_FILE_CONTRACTID = "@mozilla.org/file/local;1";
 const NS_STRING_INPUT_STREAM_CONTRACTID = "@mozilla.org/io/string-input-stream;1";
 const NS_INPUT_STREAM_CHNL_CONTRACTID = "@mozilla.org/network/input-stream-channel;1";
 const IOSERVICE_CONTRACTID = "@mozilla.org/network/io-service;1";
@@ -160,7 +169,74 @@ var Streams = {
     if (contentType && contentType.length) chan.contentType = contentType;
 
     return chan;
-  }
+  },
+
+  createFileStream: function(filePath, permissions) {
+    try {
+      let localFile;
+      if (typeof filePath == "string") {
+        localFile = Cc[NS_FILE_CONTRACTID].createInstance(Ci.nsIFile);
+        this.initPath(localFile, filePath);
+      }
+      else {
+        localFile = filePath.QueryInterface(Ci.nsIFile);
+      }
+
+      if (localFile.exists()) {
+
+        if (localFile.isDirectory() || !localFile.isWritable())
+          throw Components.results.NS_ERROR_FAILURE;
+
+        if (!permissions)
+          permissions = localFile.permissions;
+      }
+
+      if (!permissions)
+        permissions = DEFAULT_FILE_PERMS;
+
+      const flags = NS_WRONLY | NS_CREATE_FILE | NS_TRUNCATE;
+
+      const fileStream = Cc[NS_LOCALFILEOUTPUTSTREAM_CONTRACTID].createInstance(Ci.nsIFileOutputStream);
+
+      fileStream.init(localFile, flags, permissions, 0);
+
+      return fileStream;
+
+    }
+    catch (ex) {
+      console.error(ex)
+      return null;
+    }
+  },
+
+  initPath: function(localFileObj, pathStr) {
+    localFileObj.initWithPath(pathStr);
+
+    if (!localFileObj.exists()) {
+      localFileObj.persistentDescriptor = pathStr;
+    }
+  },
+
+  writeFileContents: function (filePath, data, permissions) {
+    try {
+      const fileOutStream = this.createFileStream(filePath, permissions);
+
+      if (data.length) {
+        if (fileOutStream.write(data, data.length) != data.length) {
+          throw Components.results.NS_ERROR_FAILURE;
+        }
+
+        fileOutStream.flush();
+      }
+      fileOutStream.close();
+    }
+    catch (ex) {
+      console.error(ex)
+      return false;
+    }
+
+    return true;
+  },
 
 };
 

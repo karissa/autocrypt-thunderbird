@@ -3,7 +3,8 @@ var crypto = require('crypto')
 var base64 = require('base64-js')
 var openpgp = require('openpgp')
 
-var getEmail = require('./email').getEmail
+var send = require('./send')
+var account = require('./email')
 var getAuthor = require('./author')
 var autocrypt = require('./autocrypt')()
 
@@ -12,6 +13,7 @@ var Ci = self.Components.interfaces
 var Cu = self.Components.utils
 
 Cu.import("resource:///modules/mailServices.js");
+
 var gTxtConverter = Cc["@mozilla.org/txttohtmlconv;1"].createInstance(Ci.mozITXTToHTMLConv)
 var convFlags = Ci.mozITXTToHTMLConv.kEntities
 
@@ -51,10 +53,11 @@ function onSendMessage (event) {
 
   var currentMessage = self.gMsgCompose.compFields
 
-  var fromEmail = getAuthor(getEmail(identity))
+  var fromEmail = getAuthor(account.getEmail(identity))
   var toEmail = getAuthor(currentMessage.to)
+  var body = gMsgCompose.editor.document.body.textContent
   // lets try to encrypt this
-  encrypt(fromEmail, toEmail, currentMessage.body, function (err, cipherText) {
+  encrypt(fromEmail, toEmail, body, function (err, cipherText) {
     if (err) onerror(err)
     if (cipherText) {
       // halalujah, it can be encrypted
@@ -77,33 +80,36 @@ function onSendMessage (event) {
       "Content-Disposition: inline; filename=\"encrypted.asc\"\r\n"
       + "\r\n";
       mimeMessage += cipherText.data
-      var HTMLmessage = gTxtConverter.scanTXT(mimeMessage, convFlags)
-      HTMLmessage = HTMLmessage.replace(/\r\n/g, '<br>')
-      currentMessage.body = HTMLmessage
-      gMsgCompose.editor.document.body.innerHTML = HTMLmessage
     }
     // ok send the message
     autocrypt.generateAutocryptHeader(fromEmail, function (err, autocryptHeader) {
       if (err) onerror(err)
       if (autocryptHeader) currentMessage.setHeader('Autocrypt', autocryptHeader)
 
-      // send the email.
-      let am = MailServices.accounts
-      self.gMsgCompose.SendMsg(msgSend.nsMsgDeliverNow,
-        am.defaultAccount.defaultIdentity,
-        am.defaultAccount,
-        null, // message window
-        progress) // nsIMsgProgress
+      var date = new Date()
+      var body = "Date: " + date.toUTCString() + '\r\n' + currentMessage.buildMimeText() + '\r\n' + mimeMessage
+      var params = {
+        identity: identity,
+        to: toEmail,
+        from: fromEmail,
+        subject: currentMessage.subject,
+      }
+      send(params, body, function (err) {
+        if (err) onerror(err)
+        gMsgCompose.CloseWindow()
+      })
     })
   })
+
   event.stopPropagation()
   event.preventDefault()
   return false
 }
 
+
 function startup () {
   var identity = getCurrentIdentity()
-  var email = getEmail(identity)
+  var email = account.getEmail(identity)
 
   function done (err) {
     if (err) return onerror(err)
