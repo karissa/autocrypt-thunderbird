@@ -1,8 +1,9 @@
-var MimeBuilder = require('emailjs-mime-builder')
 var crypto = require('crypto')
 var base64 = require('base64-js')
 var openpgp = require('openpgp')
 
+var sendMessage = require('../stdlib/send')
+var msgHdrUtils = require('../stdlib/msgHdrUtils')
 var getEmail = require('./email').getEmail
 var getAuthor = require('./author')
 var autocrypt = require('./autocrypt')()
@@ -76,24 +77,44 @@ function onSendMessage (event) {
       "Content-Description: OpenPGP encrypted message\r\n" +
       "Content-Disposition: inline; filename=\"encrypted.asc\"\r\n"
       + "\r\n";
+
       mimeMessage += cipherText.data
-      var HTMLmessage = gTxtConverter.scanTXT(mimeMessage, convFlags)
-      HTMLmessage = HTMLmessage.replace(/\r\n/g, '<br>')
-      currentMessage.body = HTMLmessage
-      gMsgCompose.editor.document.body.innerHTML = HTMLmessage
+      //var HTMLmessage = gTxtConverter.scanTXT(mimeMessage, convFlags)
+      //HTMLmessage = HTMLmessage.replace(/\r\n/g, '<br>')
+      //currentMessage.body = HTMLmessage
+      body = mimeMessage
     }
+
     // ok send the message
     autocrypt.generateAutocryptHeader(fromEmail, function (err, autocryptHeader) {
       if (err) onerror(err)
       if (autocryptHeader) currentMessage.setHeader('Autocrypt', autocryptHeader)
 
-      // send the email.
-      let am = MailServices.accounts
-      self.gMsgCompose.SendMsg(msgSend.nsMsgDeliverNow,
-        am.defaultAccount.defaultIdentity,
-        am.defaultAccount,
-        null, // message window
-        progress) // nsIMsgProgress
+      sendMessage({
+        msgHdr: currentMessage,
+        urls: [gMsgCompose.originalMsgURI],
+        identity: identity,
+        to: currentMessage.to,
+        cc: currentMessage.cc,
+        bcc: currentMessage.bcc,
+        subject: currentMessage.subject,
+      }, {
+        compType: gComposeType,
+        deliverType: Ci.nsIMsgCompDeliverMode.Now,
+      }, {
+        match: function (x) { x.plainText(body) }
+      }, {
+        progressListener: null,
+        sendListener: null,
+        stateListener: {
+          NotifyComposeFieldsReady: function() {
+            debugger
+          },
+          NotifyComposeBodyReady: function() { },
+          SaveInFolderDone: function(folderURI) { },
+          ComposeProcessDone: function(aResult) { },
+        }
+      })
     })
   })
   event.stopPropagation()
