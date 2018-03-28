@@ -1,5 +1,6 @@
 # autocrypt-thunderbird
-WIP Extension for Autocrypt in Thunderbird
+
+WIP Experiment, extension for Autocrypt in Thunderbird
 
 ## installing in development mode 
 
@@ -19,3 +20,10 @@ Then link your/a Thunderbird profile with the autocrypt-thunderbird extension:
   - autocrypt-thunderbird plugin should be active
 
 
+# Note
+
+Uses some code on Enigmail
+
+# License
+
+GPL
