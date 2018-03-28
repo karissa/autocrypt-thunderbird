@@ -74,6 +74,7 @@ function getEncrypted (contentType, mimeTree) {
 function parseMessage (fromEmail, myEmail, uriSpec, cb) {
   console.log('getting mime tree for ', uriSpec)
   getMimeTreeFromUriSpec(uriSpec, function (mimeTree) {
+    if (!mimeTree) return console.log('no mime tree')
     console.log('got mimeTree', mimeTree)
     var contentType = self.currentHeaderData['content-type'].headerValue
     var cipherText = getEncrypted(contentType, mimeTree)
@@ -106,7 +107,7 @@ function getMimeTreeFromUriSpec (uriSpec, cb) {
     cb(getMimeTree(data))
   }
   var url = getUrlFromUriSpec(uriSpec)
-  console.log('get mime tree for', url.spec)
+  if (!url) return cb()
 
   var chan = streams.createChannel(url.spec);
   var bufferListener = streams.newStringStreamListener(done);
