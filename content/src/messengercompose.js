@@ -42,27 +42,18 @@ function encrypt (fromEmail, toEmail, plainText, cb) {
 function onSendMessage (event) {
   var identity = getCurrentIdentity()
   var email = getEmail(identity)
-  let msgcomposeWindow = document.getElementById('msgcomposeWindow');
-  let sendMsgType = Number(msgcomposeWindow.getAttribute('msgtype'))
 
-  let compFields = Cc["@mozilla.org/messengercompose/composefields;1"].createInstance(Ci.nsIMsgCompFields);
   let msgSend = Cc['@mozilla.org/messengercompose/send;1'].createInstance(Ci.nsIMsgSend);
-  let msgComposeParams = Cc['@mozilla.org/messengercompose/composeparams;1'].createInstance(Ci.nsIMsgComposeParams);
   let progress = Cc["@mozilla.org/messenger/progress;1"].createInstance(Ci.nsIMsgProgress);
   let currentMessage = self.gMsgCompose.compFields
 
-  compFields.from = currentMessage.from
-  compFields.to = currentMessage.to
-  compFields.subject = currentMessage.subject
   autocrypt.generateAutocryptHeader(email, function (err, autocryptHeader) {
     if (err) return onerror(err)
     encrypt(email, currentMessage.to, currentMessage.body, function (err, cipherText) {
       if (err) return onerror(err)
-      compFields.body = cipherText.data
-      compFields.setHeader('Autocrypt', autocryptHeader)
-      msgComposeParams.composeFields = compFields
+      currentMessage.body = cipherText.data
+      currentMessage.setHeader('Autocrypt', autocryptHeader)
       let am = MailServices.accounts
-      self.gMsgCompose.initialize(msgComposeParams)
       self.gMsgCompose.SendMsg(msgSend.nsMsgDeliverNow,
         am.defaultAccount.defaultIdentity, // identity
         am.defaultAccount, // account
