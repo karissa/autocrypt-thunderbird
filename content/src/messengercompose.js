@@ -11,7 +11,7 @@ var Cu = self.Components.utils
 
 Cu.import("resource:///modules/mailServices.js");
 
-var header
+var ready = false
 
 window.addEventListener('compose-send-message', onSendMessage, true);
 window.addEventListener('load', function (e) {
@@ -23,6 +23,7 @@ function onerror (err) {
 }
 
 function encrypt (fromEmail, toEmail, plainText, cb) {
+  while (!ready) {} // once we have the key ready, lets do this
   autocrypt.getUser(fromEmail, function (err, me) {
     if (err) return cb(err)
     autocrypt.getUser(toEmail, function (err, toUser) {
@@ -42,17 +43,20 @@ function encrypt (fromEmail, toEmail, plainText, cb) {
 function onSendMessage (event) {
   var identity = getCurrentIdentity()
   var email = getEmail(identity)
-
   let msgSend = Cc['@mozilla.org/messengercompose/send;1'].createInstance(Ci.nsIMsgSend);
   let progress = Cc["@mozilla.org/messenger/progress;1"].createInstance(Ci.nsIMsgProgress);
   let currentMessage = self.gMsgCompose.compFields
-
-  autocrypt.generateAutocryptHeader(email, function (err, autocryptHeader) {
-    if (err) return onerror(err)
-    encrypt(email, currentMessage.to, currentMessage.body, function (err, cipherText) {
-      if (err) return onerror(err)
+  // lets try to encrypt this
+  encrypt(email, currentMessage.to, currentMessage.body, function (err, cipherText) {
+    if (err) onerror(err)
+    if (cipherText) {
+      // halalujah, it can be encrypted
       currentMessage.body = cipherText.data
-      currentMessage.setHeader('Autocrypt', autocryptHeader)
+    }
+    // ok send the message
+    autocrypt.generateAutocryptHeader(email, function (err, autocryptHeader) {
+      if (err) onerror(err)
+      if (autocryptHeader) currentMessage.setHeader('Autocrypt', autocryptHeader)
       let am = MailServices.accounts
       self.gMsgCompose.SendMsg(msgSend.nsMsgDeliverNow,
         am.defaultAccount.defaultIdentity, // identity
@@ -65,12 +69,21 @@ function onSendMessage (event) {
   return false
 }
 
-
 function startup () {
   var identity = getCurrentIdentity()
   var email = getEmail(identity)
+
+  function done (err) {
+    if (err) return onerror(err)
+    // we're ready to send mail!
+    ready = true
+    return
+  }
+
   autocrypt.getUser(email, function (err, user) {
-    if (err) return generateKey(email, onerror)
+    // if the user is not found generate the key
+    if (err) return generateKey(email, done)
+    done(null)
   })
 }
 
