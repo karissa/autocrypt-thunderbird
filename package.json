@@ -15,7 +15,7 @@
     "url": "git+https://github.com/karissa/autocrypt-thunderbird.git"
   },
   "author": "",
-  "license": "ISC",
+  "license": "GPL-v3",
   "bugs": {
     "url": "https://github.com/karissa/autocrypt-thunderbird/issues"
   },
