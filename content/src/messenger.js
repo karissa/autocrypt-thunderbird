@@ -41,7 +41,7 @@ var messageListener = {
 function decrypt (fromPublicKey, privateKey, cipherText) {
   if (!fromPublicKey || !privateKey) return console.error('one or more udnefined: ', fromPublicKey, privateKey)
   let bodyElement = messagePane.document.getElementsByTagName("body")[0];
-  bodyElement.innerHTML = ''
+  bodyElement.innerHTML = 'Attempting to decrypt...'
   var options = {
     message: openpgp.message.readArmored(cipherText),
     publicKey: openpgp.key.read(base64.toByteArray(fromPublicKey)).keys,

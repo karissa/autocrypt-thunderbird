@@ -9,6 +9,8 @@ var Cc = self.Components.classes
 var Ci = self.Components.interfaces
 var Cu = self.Components.utils
 
+Cu.import("resource:///modules/mailServices.js");
+
 var header
 
 window.addEventListener('compose-send-message', onSendMessage, true);
@@ -16,34 +18,68 @@ window.addEventListener('load', function (e) {
   startup();
 }, false);
 
+function onerror (err) {
+  if (err) console.error(err)
+}
+
+function encrypt (fromEmail, toEmail, plainText, cb) {
+  autocrypt.getUser(fromEmail, function (err, me) {
+    if (err) return cb(err)
+    autocrypt.getUser(toEmail, function (err, toUser) {
+      if (err) return cb(err)
+      var options = {
+        data: plainText,
+        publicKeys: openpgp.key.read(base64.toByteArray(toUser.keydata)).keys,
+        privateKeys: openpgp.key.read(base64.toByteArray(me.privateKey)).keys
+      }
+      openpgp.encrypt(options).then(function (cipherText) {
+        cb(null, cipherText)
+      })
+    })
+  })
+}
+
 function onSendMessage (event) {
   var identity = getCurrentIdentity()
   var email = getEmail(identity)
-  let msgcomposeWindow = document.getElementById("msgcomposeWindow");
-  let sendMsgType = Number(msgcomposeWindow.getAttribute("msgtype"));
-  if (header) {
-    self.gMsgCompose.compFields.setHeader('Autocrypt', header)
-  }
+  let msgcomposeWindow = document.getElementById('msgcomposeWindow');
+  let sendMsgType = Number(msgcomposeWindow.getAttribute('msgtype'))
+
+  let compFields = Cc["@mozilla.org/messengercompose/composefields;1"].createInstance(Ci.nsIMsgCompFields);
+  let msgSend = Cc['@mozilla.org/messengercompose/send;1'].createInstance(Ci.nsIMsgSend);
+  let msgComposeParams = Cc['@mozilla.org/messengercompose/composeparams;1'].createInstance(Ci.nsIMsgComposeParams);
+  let progress = Cc["@mozilla.org/messenger/progress;1"].createInstance(Ci.nsIMsgProgress);
+  let currentMessage = self.gMsgCompose.compFields
+
+  compFields.from = currentMessage.from
+  compFields.to = currentMessage.to
+  compFields.subject = currentMessage.subject
+  autocrypt.generateAutocryptHeader(email, function (err, autocryptHeader) {
+    if (err) return onerror(err)
+    encrypt(email, currentMessage.to, currentMessage.body, function (err, cipherText) {
+      if (err) return onerror(err)
+      compFields.body = cipherText.data
+      compFields.setHeader('Autocrypt', autocryptHeader)
+      msgComposeParams.composeFields = compFields
+      let am = MailServices.accounts
+      self.gMsgCompose.initialize(msgComposeParams)
+      self.gMsgCompose.SendMsg(msgSend.nsMsgDeliverNow,
+        am.defaultAccount.defaultIdentity, // identity
+        am.defaultAccount, // account
+        null, // message window
+        progress) // nsIMsgProgress
+    })
+  })
+  event.preventDefault()
+  return false
 }
 
-function done (err, user) {
-  if (err) throw err
-  var identity = getCurrentIdentity()
-  var email = getEmail(identity)
-  autocrypt.generateAutocryptHeader(email, function (err, _header) {
-    header = _header
-  })
-}
 
 function startup () {
   var identity = getCurrentIdentity()
   var email = getEmail(identity)
   autocrypt.getUser(email, function (err, user) {
-    if (err) {
-      return generateKey(email, done)
-    }
-    console.log('got autocrypt user', user)
-    done(null, user)
+    if (err) return generateKey(email, onerror)
   })
 }
 
@@ -62,7 +98,6 @@ function generateKey (email, cb) {
   }).then((key) =>  {
     var publicKey = unarmor(key.publicKeyArmored)
     var privateKey = unarmor(key.privateKeyArmored)
-    console.log('creating autocrypt user', email, publicKey, privateKey)
     autocrypt.createUser(email, {publicKey, privateKey}, cb)
   })
 }
