@@ -3,13 +3,18 @@ var crypto = require('crypto')
 var base64 = require('base64-js')
 var openpgp = require('openpgp')
 
-var getEmail = require('./email').getEmail
+var streams = require('./streams')
+var account = require('./email')
 var getAuthor = require('./author')
 var autocrypt = require('./autocrypt')()
 
 var Cc = self.Components.classes
 var Ci = self.Components.interfaces
 var Cu = self.Components.utils
+
+const XPCOM_APPINFO = "@mozilla.org/xre/app-info;1";
+const DIRSERVICE_CONTRACTID = "@mozilla.org/file/directory_service;1";
+const NS_FILE_CONTRACTID = "@mozilla.org/file/local;1";
 
 Cu.import("resource:///modules/mailServices.js");
 var gTxtConverter = Cc["@mozilla.org/txttohtmlconv;1"].createInstance(Ci.mozITXTToHTMLConv)
@@ -77,10 +82,6 @@ function onSendMessage (event) {
       "Content-Disposition: inline; filename=\"encrypted.asc\"\r\n"
       + "\r\n";
       mimeMessage += cipherText.data
-      var HTMLmessage = gTxtConverter.scanTXT(mimeMessage, convFlags)
-      HTMLmessage = HTMLmessage.replace(/\r\n/g, '<br>')
-      currentMessage.body = HTMLmessage
-      gMsgCompose.editor.document.body.innerHTML = HTMLmessage
     }
     // ok send the message
     autocrypt.generateAutocryptHeader(fromEmail, function (err, autocryptHeader) {
@@ -89,11 +90,49 @@ function onSendMessage (event) {
 
       // send the email.
       let am = MailServices.accounts
-      self.gMsgCompose.SendMsg(msgSend.nsMsgDeliverNow,
-        am.defaultAccount.defaultIdentity,
-        am.defaultAccount,
-        null, // message window
-        progress) // nsIMsgProgress
+      let tmpFile
+      try {
+        const TEMPDIR_PROP = "TmpD";
+        try {
+          const dsprops = Cc[DIRSERVICE_CONTRACTID].getService().
+          QueryInterface(Ci.nsIProperties);
+          return dsprops.get(TEMPDIR_PROP, Ci.nsIFile);
+        }
+        catch (ex) {
+          // let's guess ...
+          const tmpDirObj = Cc[NS_FILE_CONTRACTID].createInstance(Ci.nsIFile);
+          var OS = Cc[XPCOM_APPINFO].getService(Ci.nsIXULRuntime).OS
+          if (OS == "WINNT") {
+            tmpDirObj.initWithPath("C:/TEMP");
+          }
+          else {
+            tmpDirObj.initWithPath("/tmp");
+          }
+          tmpFile = tmpDirObj;
+        }
+        tmpFile.append('message.eml');
+        tmpFile.createUnique(0, 384); // == 0600, octal is deprecated
+      }
+      catch (err) {
+        onerror(err)
+        return false;
+      }
+
+      streams.writeFileContents(tmpFile, mimeMessage);
+
+      var identity = getCurrentIdentity()
+      let acct = account.getAccountForIdentity(identity)
+      if (!acct) return false;
+
+      msgSend.sendMessageFile(acct.identity,
+        currentMessage,
+        tmpFile,
+        true, // Delete File On Completion
+        false, (Services.io.offline ? Ci.nsIMsgSend.nsMsgQueueForLater : Ci.nsIMsgSend.nsMsgDeliverNow),
+        null,
+        null, // listener obj
+        null,
+        ""); // password
     })
   })
   event.stopPropagation()
@@ -103,7 +142,7 @@ function onSendMessage (event) {
 
 function startup () {
   var identity = getCurrentIdentity()
-  var email = getEmail(identity)
+  var email = account.getEmail(identity)
 
   function done (err) {
     if (err) return onerror(err)
