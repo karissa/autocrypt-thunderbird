@@ -3,13 +3,18 @@ var crypto = require('crypto')
 var base64 = require('base64-js')
 var openpgp = require('openpgp')
 
-var getEmail = require('./email').getEmail
+var streams = require('./streams')
+var account = require('./email')
 var getAuthor = require('./author')
 var autocrypt = require('./autocrypt')()
 
 var Cc = self.Components.classes
 var Ci = self.Components.interfaces
 var Cu = self.Components.utils
+
+const XPCOM_APPINFO = "@mozilla.org/xre/app-info;1";
+const DIRSERVICE_CONTRACTID = "@mozilla.org/file/directory_service;1";
+const NS_FILE_CONTRACTID = "@mozilla.org/file/local;1";
 
 Cu.import("resource:///modules/mailServices.js");
 
@@ -46,26 +51,20 @@ function onSendMessage (event) {
   var identity = getCurrentIdentity()
   let msgSend = Cc['@mozilla.org/messengercompose/send;1'].createInstance(Ci.nsIMsgSend);
   let progress = Cc["@mozilla.org/messenger/progress;1"].createInstance(Ci.nsIMsgProgress);
-  let fields = Cc["@mozilla.org/messengercompose/composefields;1"].createInstance(Ci.nsIMsgCompFields);
-  let params = Cc["@mozilla.org/messengercompose/composeparams;1"].createInstance(Ci.nsIMsgComposeParams);
 
   var currentMessage = self.gMsgCompose.compFields
-  fields.to = currentMessage.to
-  fields.cc = currentMessage.cc
-  fields.subject = currentMessage.subject
-  fields.from = currentMessage.from
-  fields.bcc = currentMessage.bcc
 
-  var fromEmail = getAuthor(getEmail(identity))
-  var toEmail = getAuthor(fields.to)
+  var fromEmail = getAuthor(account.getEmail(identity))
+  var toEmail = getAuthor(currentMessage.to)
+  debugger
   // lets try to encrypt this
-  encrypt(fromEmail, toEmail, fields.body, function (err, cipherText) {
+  encrypt(fromEmail, toEmail, currentMessage.body, function (err, cipherText) {
     if (err) onerror(err)
     if (cipherText) {
       // halalujah, it can be encrypted
       var cryptoBoundary = crypto.randomBytes(16).toString('base64')
       var contentType =`multipart/encrypted;protocol="application/pgp-encrypted;boundary="${cryptoBoundary}`
-      fields.setHeader('Content-Type', contentType)
+      currentMessage.setHeader('Content-Type', contentType)
 
       var mimeMessage = "This is an OpenPGP/MIME encrypted message (RFC 4880 and 3156)\r\n" +
       "--" + cryptoBoundary + "\r\n" +
@@ -80,23 +79,58 @@ function onSendMessage (event) {
       "Content-Disposition: inline; filename=\"encrypted.asc\"\r\n"
       + "\r\n";
       mimeMessage += cipherText.data
-      fields.body = mimeMessage
+      currentMessage.body = mimeMessage
     }
     // ok send the message
     autocrypt.generateAutocryptHeader(fromEmail, function (err, autocryptHeader) {
       if (err) onerror(err)
-      if (autocryptHeader) fields.setHeader('Autocrypt', autocryptHeader)
+      if (autocryptHeader) currentMessage.setHeader('Autocrypt', autocryptHeader)
 
       // send the email.
       let am = MailServices.accounts
-      params.composeFields = fields
-      params.format = Ci.nsIMsgCompFormat.PlainText
-      self.gMsgCompose.initialize(params)
-      self.gMsgCompose.SendMsg(msgSend.nsMsgDeliverNow,
-        am.defaultAccount.defaultIdentity,
-        am.defaultAccount,
-        null, // message window
-        progress) // nsIMsgProgress
+      let tmpFile
+      try {
+        const TEMPDIR_PROP = "TmpD";
+        try {
+          const dsprops = Cc[DIRSERVICE_CONTRACTID].getService().
+          QueryInterface(Ci.nsIProperties);
+          return dsprops.get(TEMPDIR_PROP, Ci.nsIFile);
+        }
+        catch (ex) {
+          // let's guess ...
+          const tmpDirObj = Cc[NS_FILE_CONTRACTID].createInstance(Ci.nsIFile);
+          var OS = Cc[XPCOM_APPINFO].getService(Ci.nsIXULRuntime).OS
+          if (OS == "WINNT") {
+            tmpDirObj.initWithPath("C:/TEMP");
+          }
+          else {
+            tmpDirObj.initWithPath("/tmp");
+          }
+          tmpFile = tmpDirObj;
+        }
+        tmpFile.append('message.eml');
+        tmpFile.createUnique(0, 384); // == 0600, octal is deprecated
+      }
+      catch (err) {
+        onerror(err)
+        return false;
+      }
+
+      streams.writeFileContents(tmpFile, msgData);
+
+      var identity = getCurrentIdentity()
+      let acct = account.getAccountForIdentity(identity)
+      if (!acct) return false;
+
+      msgSend.sendMessageFile(acct.identity,
+        currentMessage,
+        tmpFile,
+        true, // Delete File On Completion
+        false, (Services.io.offline ? Ci.nsIMsgSend.nsMsgQueueForLater : Ci.nsIMsgSend.nsMsgDeliverNow),
+        null,
+        null, // listener obj
+        null,
+        ""); // password
     })
   })
   event.stopPropagation()
@@ -106,7 +140,7 @@ function onSendMessage (event) {
 
 function startup () {
   var identity = getCurrentIdentity()
-  var email = getEmail(identity)
+  var email = account.getEmail(identity)
 
   function done (err) {
     if (err) return onerror(err)
