@@ -31,15 +31,15 @@ var messageListener = {
         autocryptHeader = self.currentHeaderData[h].headerValue
       }
     }
-    var myEmail = gMessageDisplay.folderDisplay.view.displayedFolder.parent.abbreviatedName
     var uriSpec = gFolderDisplay.selectedMessageUris[0]
-    if (!autocryptHeader) return parseMessage(myEmail, uriSpec)
-
     var fromEmail = getAuthor(self.currentHeaderData.from.headerValue)
+    var toEmail = getAuthor(self.currentHeaderData.to.headerValue)
     var date = new Date(self.currentHeaderData.date.headerValue)
+    if (!autocryptHeader) return parseMessage(fromEmail, toEmail, uriSpec)
+
     autocrypt.processAutocryptHeader(autocryptHeader, fromEmail, date, function (err) {
       if (err) return onerror(err)
-      return parseMessage(fromEmail, myEmail, uriSpec)
+      return parseMessage(fromEmail, toEmail, uriSpec)
     })
   }
 }
@@ -77,19 +77,19 @@ function getEncrypted (contentType, mimeTree) {
   return null
 }
 
-function parseMessage (fromEmail, myEmail, uriSpec, cb) {
-  console.log('getting mime tree for ', uriSpec)
+function parseMessage (fromEmail, toEmail, uriSpec) {
   getMimeTreeFromUriSpec(uriSpec, function (mimeTree) {
     if (!mimeTree) return console.log('no mime tree')
-    console.log('got mimeTree', mimeTree)
+
     var contentType = self.currentHeaderData['content-type'].headerValue
     var cipherText = getEncrypted(contentType, mimeTree)
     if (!cipherText) return console.log('not encrypted')
-    autocrypt.getUser(myEmail, function (err, me) {
+
+    autocrypt.getUser(toEmail, function (err, to) {
       if (err) return onerror(err)
       autocrypt.getUser(fromEmail, function (err, from) {
         if (err) return onerror(err)
-        return decrypt(from.keydata, me.privateKey, cipherText)
+        return decrypt(from.keydata, to.privateKey, cipherText)
       })
     })
   })
@@ -144,10 +144,6 @@ function getUrlFromUriSpec (uriSpec) {
   catch (ex) {
     return null;
   }
-}
-
-function getPayload (selectedMessage) {
-
 }
 
 function messageFrameUnload () {

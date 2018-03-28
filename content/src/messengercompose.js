@@ -28,14 +28,14 @@ function onerror (err) {
 
 function encrypt (fromEmail, toEmail, plainText, cb) {
   while (!ready) {} // once we have the key ready, lets do this
-  autocrypt.getUser(fromEmail, function (err, me) {
+  autocrypt.getUser(fromEmail, function (err, from) {
     if (err) return cb(err)
     autocrypt.getUser(toEmail, function (err, toUser) {
       if (err) return cb(err)
       var options = {
         data: plainText,
         publicKeys: openpgp.key.read(base64.toByteArray(toUser.keydata)).keys,
-        privateKeys: openpgp.key.read(base64.toByteArray(me.privateKey)).keys
+        privateKeys: openpgp.key.read(base64.toByteArray(from.privateKey)).keys
       }
       openpgp.encrypt(options).then(function (cipherText) {
         cb(null, cipherText)
