@@ -13,6 +13,11 @@ const Cu = Components.utils;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm"); /*global XPCOMUtils: false */
 Cu.import("resource://gre/modules/Services.jsm"); /* global Services: false */
 
+const NS_RDONLY = 0x01;
+const NS_WRONLY = 0x02;
+const NS_CREATE_FILE = 0x08;
+const NS_TRUNCATE = 0x20;
+const DEFAULT_FILE_PERMS = 0x180; // equals 0600
 const NS_LOCALFILEOUTPUTSTREAM_CONTRACTID = "@mozilla.org/network/file-output-stream;1";
 const XPCOM_APPINFO = "@mozilla.org/xre/app-info;1";
 const DIRSERVICE_CONTRACTID = "@mozilla.org/file/directory_service;1";
@@ -199,6 +204,7 @@ var Streams = {
 
     }
     catch (ex) {
+      console.error(ex)
       return null;
     }
   },
@@ -225,6 +231,7 @@ var Streams = {
       fileOutStream.close();
     }
     catch (ex) {
+      console.error(ex)
       return false;
     }
 
