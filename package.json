@@ -1,6 +1,6 @@
 {
   "name": "autocrypt-plugin",
-  "version": "1.0.0",
+  "version": "1.0.0-pre",
   "description": "WIP Extension for Autocrypt in Thunderbird",
   "main": "index.js",
   "scripts": {
