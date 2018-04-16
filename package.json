@@ -29,6 +29,7 @@
     "randombytes": "^2.0.6"
   },
   "devDependencies": {
+    "emailjs-mime-builder": "^1.0.1",
     "browserify": "^16.1.1",
     "watchify": "^3.11.0"
   }
